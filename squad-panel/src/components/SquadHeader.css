@@ -1,0 +1,30 @@
+.squad-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 12px;
+}
+
+.squad-header-left {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.squad-header-name {
+  font-size: 18px;
+  font-weight: bold;
+}
+
+.squad-header-role {
+  background: #3a3a5e;
+  padding: 2px 10px;
+  border-radius: 3px;
+  font-size: 11px;
+  color: #aac;
+}
+
+.squad-header-size {
+  font-size: 11px;
+  color: #888;
+}
