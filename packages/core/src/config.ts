@@ -1,0 +1,10 @@
+export const TICK_STEP_MS = 100
+export const DEPLOYING_MS = 2000
+export const MISSION_DURATION_MS = 45000
+export const RETURNING_MS = 5000
+export const MISSION_REPORT_MS = 5000
+export const BASE_PAUSE_MS = 15000
+export const EVENT_INTERVAL_MS = 8000
+export const EVENT_LOG_MAX = 20
+export const MAP_WIDTH = 800
+export const MAP_HEIGHT = 500
