@@ -2,4 +2,5 @@ node_modules
 dist
 .cline
 .clinerules
+.superpowers
 CLAUDE.md
