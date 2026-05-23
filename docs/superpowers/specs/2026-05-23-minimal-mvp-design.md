@@ -1,7 +1,7 @@
 # PAWS Prototype — Minimal MVP Design
 
 **Date:** 2026-05-23  
-**Status:** Approved (brainstorming)  
+**Status:** Implemented (verified 2026-05-23)  
 **Reference mockup:** `ideas/ChatGPT Image 21 мая 2026 г., 21_49_13.png`
 
 ## Goal
@@ -283,13 +283,13 @@ Typography: Inter or Rajdhani; section headers uppercase with letter-spacing.
 
 ## 6. Success Criteria
 
-- [ ] `pnpm install && pnpm dev` opens UI
-- [ ] Squad cycles missions without clicks
-- [ ] Map shows movement; event log updates
-- [ ] Mission report appears after each mission
-- [ ] Resupply phase visible (~15s) with readiness recovery when stock allows
-- [ ] Core tests pass with zero browser APIs
-- [ ] No imports from UI into core
+- [x] `pnpm install && pnpm dev` opens UI
+- [x] Squad cycles missions without clicks
+- [x] Map shows movement; event log updates
+- [x] Mission report appears after each mission
+- [x] Resupply phase visible (~15s) with readiness recovery when stock allows
+- [x] Core tests pass with zero browser APIs
+- [x] No imports from UI into core
 
 ---
 
