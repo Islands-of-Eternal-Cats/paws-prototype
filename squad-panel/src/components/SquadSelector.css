@@ -1,0 +1,27 @@
+.squad-selector {
+  display: flex;
+  gap: 4px;
+  margin-bottom: 16px;
+}
+
+.squad-selector-tab {
+  background: #1a1a2e;
+  padding: 6px 14px;
+  border-radius: 4px;
+  font-size: 13px;
+  font-weight: bold;
+  border: 1px solid #2a2a3e;
+  color: #888;
+  cursor: pointer;
+  font-family: inherit;
+}
+
+.squad-selector-tab.active {
+  background: #2a2a3e;
+  border-color: #556677;
+  color: #d0d0d0;
+}
+
+.squad-selector-tab:hover {
+  border-color: #556677;
+}
