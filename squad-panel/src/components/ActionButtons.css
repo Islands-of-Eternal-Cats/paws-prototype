@@ -1,0 +1,25 @@
+.action-buttons {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 16px;
+}
+
+.action-btn {
+  padding: 6px 14px;
+  border-radius: 4px;
+  font-size: 12px;
+  cursor: pointer;
+  border: 1px solid #445566;
+  font-family: inherit;
+  background: #2a3a3e;
+  color: #d0d0d0;
+}
+
+.action-btn.primary {
+  background: #3a4a5e;
+  border-color: #556677;
+}
+
+.action-btn:hover {
+  opacity: 0.8;
+}
