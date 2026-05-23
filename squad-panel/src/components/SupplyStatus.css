@@ -1,0 +1,54 @@
+.supply-status {
+  margin-bottom: 16px;
+}
+
+.supply-status-title {
+  font-size: 12px;
+  color: #888;
+  margin-bottom: 6px;
+}
+
+.supply-status-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 4px;
+  font-size: 12px;
+}
+
+.supply-item {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.supply-item-icon {
+  font-weight: bold;
+}
+
+.supply-item-icon.ok {
+  color: #44cc44;
+}
+
+.supply-item-icon.low {
+  color: #ccaa44;
+}
+
+.supply-item-icon.missing {
+  color: #cc4444;
+}
+
+.supply-item-label {
+  color: #d0d0d0;
+}
+
+.supply-item-value.ok {
+  color: #888;
+}
+
+.supply-item-value.low {
+  color: #ccaa44;
+}
+
+.supply-item-value.missing {
+  color: #cc4444;
+}
