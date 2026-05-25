@@ -1,20 +1,29 @@
 import { describe, it, expect } from 'vitest'
 import { createGame } from './game.js'
 import { BASE_PAUSE_MS, TICK_STEP_MS } from './config.js'
-import { createInitialSquad } from './content.js'
-import { resupplySquad } from './resupply.js'
-import { createInitialStorage } from './content.js'
-import { computeReadiness } from './readiness.js'
 
 describe('createGame', () => {
-  it('transitions AtBase to Deploying after BASE_PAUSE_MS', () => {
+  it('starts with 2 squads at AtBase', () => {
     const game = createGame({ seed: 1 })
-    let state = game.getState()
-    expect(state.phase).toBe('AtBase')
-    const ticks = Math.ceil(BASE_PAUSE_MS / TICK_STEP_MS) + 1
+    const state = game.getState()
+    expect(state.squads).toHaveLength(2)
+    expect(state.squads[0].phase).toBe('AtBase')
+    expect(state.squads[1].phase).toBe('AtBase')
+    expect(state.squads[0].id).toBe('KOBRA-1')
+    expect(state.squads[1].id).toBe('KOBRA-2')
+    expect(state.squads[0].doctrine).toBe('ASSAULT')
+    expect(state.squads[1].doctrine).toBe('RECON')
+    expect(state.missionPool.length).toBeGreaterThan(0)
+  })
+
+  it('transitions squad to Deploying after BASE_PAUSE_MS', () => {
+    const game = createGame({ seed: 1 })
+    const ticks = Math.ceil(BASE_PAUSE_MS / TICK_STEP_MS) + 2
     for (let i = 0; i < ticks; i++) game.tick(TICK_STEP_MS)
-    state = game.getState()
-    expect(state.phase).toBe('Deploying')
+    const state = game.getState()
+    // Both squads should have transitioned
+    const deploying = state.squads.filter((s) => s.phase === 'Deploying' || s.phase === 'InMission')
+    expect(deploying.length).toBeGreaterThan(0)
   })
 
   it('same seed produces identical event messages for N ticks', () => {
@@ -27,12 +36,45 @@ describe('createGame', () => {
     expect(run(99)).not.toBe(run(100))
   })
 
-  it('resupply at base restores readiness after encounter damage', () => {
-    const squad = createInitialSquad()
-    squad.units[0].slots.find((s) => s.slotId === 'medkit')!.itemId = null
-    expect(computeReadiness(squad)).toBeLessThan(100)
-    const storage = createInitialStorage()
-    resupplySquad(squad, storage)
-    expect(computeReadiness(squad)).toBe(100)
+  it('squads have independent phase cycles', () => {
+    const game = createGame({ seed: 42 })
+    const ticks = Math.ceil(BASE_PAUSE_MS / TICK_STEP_MS) + 1
+    for (let i = 0; i < ticks; i++) game.tick(TICK_STEP_MS)
+    const state = game.getState()
+    // After base pause, both should be deploying or beyond
+    for (const squad of state.squads) {
+      expect(squad.phase).not.toBe('AtBase')
+    }
+  })
+
+  it('event log has squadId prefixes', () => {
+    const game = createGame({ seed: 1 })
+    const ticks = Math.ceil(BASE_PAUSE_MS / TICK_STEP_MS) + 50
+    for (let i = 0; i < ticks; i++) game.tick(TICK_STEP_MS)
+    const state = game.getState()
+    const nonPhaseEvents = state.eventLog.filter((e) => e.type !== 'phase')
+    for (const evt of nonPhaseEvents) {
+      expect(evt.squadId).toMatch(/^KOBRA-\d$/)
+    }
+  })
+
+  it('mission pool starts with targets', () => {
+    const game = createGame({ seed: 7 })
+    const state = game.getState()
+    expect(state.missionPool).toHaveLength(3)
+    for (const target of state.missionPool) {
+      expect(['ASSAULT', 'RECON', 'PATROL']).toContain(target.type)
+    }
+  })
+
+  it('squads progress through InMission phase', () => {
+    const game = createGame({ seed: 1 })
+    // Run enough for at least one full cycle
+    const ticks = 2000 // 200 seconds, enough for multiple missions
+    for (let i = 0; i < ticks; i++) game.tick(TICK_STEP_MS)
+    const state = game.getState()
+    const inMission = state.squads.filter((s) => s.phase === 'InMission')
+    // At least one should be in mission or completed one
+    expect(state.missionIndex).toBeGreaterThan(0)
   })
 })

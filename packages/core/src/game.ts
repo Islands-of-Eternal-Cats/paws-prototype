@@ -3,17 +3,20 @@ import {
   DEPLOYING_MS,
   EVENT_INTERVAL_MS,
   EVENT_LOG_MAX,
-  MISSION_DURATION_MS,
   MISSION_REPORT_MS,
+  READINESS_EXTEND_RESUPPLY,
   RETURNING_MS,
   TICK_STEP_MS,
 } from './config.js'
 import {
   MAP_NODES,
-  createInitialSquad,
+  createInitialSquads,
   createInitialStorage,
+  createInitialMissionPool,
+  selectTargetForSquad,
+  removeTargetFromPool,
+  regenerateMissionPool,
   getHqPosition,
-  rollObjective,
 } from './content.js'
 import { itemsLostDuringMission, rollMissionEvent } from './events.js'
 import { createRng, type Rng } from './rng.js'
@@ -21,19 +24,28 @@ import { computeReadiness } from './readiness.js'
 import { resupplySquad } from './resupply.js'
 import type {
   GameEvent,
-  GamePhase,
   GameState,
-  ItemStack,
-  MissionReport,
   SquadState,
+  MissionReport,
+  SquadId,
+  ItemStack,
 } from './types.js'
 
-const PHASE_MESSAGES: Record<GamePhase, string> = {
-  AtBase: 'KOBRA-1 at HQ — resupply',
-  Deploying: 'KOBRA-1 deploying',
-  InMission: 'KOBRA-1 on mission',
-  Returning: 'KOBRA-1 returning to HQ',
-  MissionReport: 'Mission debrief',
+const PHASE_MESSAGES: Record<SquadId & string, Record<string, string>> = {
+  'KOBRA-1': {
+    AtBase: 'KOBRA-1 at HQ — resupply',
+    Deploying: 'KOBRA-1 deploying',
+    InMission: 'KOBRA-1 on mission',
+    Returning: 'KOBRA-1 returning to HQ',
+    MissionReport: 'KOBRA-1 mission debrief',
+  },
+  'KOBRA-2': {
+    AtBase: 'KOBRA-2 at HQ — resupply',
+    Deploying: 'KOBRA-2 deploying',
+    InMission: 'KOBRA-2 on mission',
+    Returning: 'KOBRA-2 returning to HQ',
+    MissionReport: 'KOBRA-2 mission debrief',
+  },
 }
 
 function pushEvent(state: GameState, event: GameEvent): void {
@@ -54,35 +66,213 @@ function lootGainedSince(current: SquadState, before: SquadState): ItemStack[] {
   return gained
 }
 
-function createInitialState(seed: number): GameState {
-  const squad = createInitialSquad()
-  squad.readiness = computeReadiness(squad)
-  const state: GameState = {
-    tick: 0,
-    seed,
-    simTimeMs: 0,
-    missionIndex: 0,
-    phase: 'AtBase',
-    phaseTimeLeftMs: BASE_PAUSE_MS,
-    missionProgress: 0,
-    objective: getHqPosition(),
-    squad,
-    baseStorage: createInitialStorage(),
-    eventLog: [],
-    lastReport: null,
-    mapNodes: MAP_NODES,
-    missionElapsedMs: 0,
-    nextEventInMs: EVENT_INTERVAL_MS,
-    missionEvents: [],
-    readinessAtMissionStart: squad.readiness,
+function buildReport(
+  squad: SquadState,
+  before: SquadState,
+  startSimTime: number,
+  missionEvents: GameEvent[],
+): MissionReport {
+  const readinessAfter = computeReadiness(squad)
+  const outcome: MissionReport['outcome'] =
+    readinessAfter > 20 ? 'success' : 'partial'
+  return {
+    outcome,
+    durationMs: squad.missionElapsedMs,
+    readinessBefore: squad.readinessAtMissionStart,
+    readinessAfter,
+    events: [...missionEvents],
+    lootGained: lootGainedSince(squad, before),
+    itemsLost: itemsLostDuringMission(squad, before),
   }
+}
+
+function enterPhase(
+  state: GameState,
+  squad: SquadState,
+  phase: SquadState['phase'],
+  durationMs: number,
+  rng: Rng,
+): void {
+  squad.phase = phase
+  squad.phaseTimeLeftMs = durationMs
+  const messages = PHASE_MESSAGES[squad.id as keyof typeof PHASE_MESSAGES] || {}
   pushEvent(state, {
-    tick: 0,
-    simTimeMs: 0,
+    tick: state.tick,
+    simTimeMs: state.simTimeMs,
+    squadId: squad.id,
     type: 'phase',
-    message: 'KOBRA-1 standing by',
+    message: messages[phase] ?? 'Phase change',
   })
-  return state
+
+  if (phase === 'AtBase') {
+    resupplySquad(squad, state.baseStorage)
+    pushEvent(state, {
+      tick: state.tick,
+      simTimeMs: state.simTimeMs,
+      squadId: squad.id,
+      type: 'resupply',
+      message: `Resupplying KOBRA-${squad.id.slice(-1)}…`,
+    })
+    squad.missionProgress = 0
+    squad.missionTargetId = null
+    squad.missionElapsedMs = 0
+    squad.nextEventInMs = EVENT_INTERVAL_MS
+    squad.missionEvents = []
+
+    // Extend resupply if readiness low
+    const finalReadiness = computeReadiness(squad)
+    if (finalReadiness < 80) {
+      squad.phaseTimeLeftMs += READINESS_EXTEND_RESUPPLY
+    }
+  }
+
+  if (phase === 'Deploying') {
+    squad.missionProgress = 0
+  }
+
+  if (phase === 'InMission') {
+    state.missionIndex += 1
+    squad.missionProgress = 0
+    squad.missionElapsedMs = 0
+    squad.nextEventInMs = EVENT_INTERVAL_MS
+    squad.missionEvents = []
+    squad.readinessAtMissionStart = computeReadiness(squad)
+    // Store before snapshot for report
+    ;(squad as SquadState & { _before: SquadState })._before = cloneSquad(squad)
+  }
+
+  if (phase === 'Returning') {
+    squad.missionProgress = 1
+  }
+
+  if (phase === 'MissionReport') {
+    const before = (squad as SquadState & { _before?: SquadState })._before ?? cloneSquad(squad)
+    state.lastReport = buildReport(
+      squad,
+      before,
+      state.simTimeMs - squad.missionElapsedMs,
+      squad.missionEvents,
+    )
+  }
+
+  squad.readiness = computeReadiness(squad)
+}
+
+function advancePhase(
+  state: GameState,
+  squad: SquadState,
+  rng: Rng,
+): void {
+  const phases: Array<SquadState['phase']> = [
+    'AtBase',
+    'Deploying',
+    'InMission',
+    'Returning',
+    'MissionReport',
+  ]
+  const currentIdx = phases.indexOf(squad.phase)
+  if (currentIdx < 0) return
+  const nextPhase = phases[currentIdx + 1]
+  if (!nextPhase) return
+
+  switch (nextPhase) {
+    case 'Deploying':
+      enterPhase(state, squad, 'Deploying', DEPLOYING_MS, rng)
+      break
+    case 'InMission': {
+      // Select target from pool
+      const target = selectTargetForSquad(state.missionPool, squad.doctrine)
+      if (target) {
+        removeTargetFromPool(state.missionPool, target.id)
+        squad.missionTargetId = target.id
+        enterPhase(state, squad, 'InMission', target.durationMs, rng)
+        // Update map objective display to target position
+        state.lastReport = { ...state.lastReport } // trigger update
+      } else {
+        // Pool empty — regenerate
+        regenerateMissionPool(state.missionPool, state.seed)
+        const newTarget = selectTargetForSquad(state.missionPool, squad.doctrine)!
+        removeTargetFromPool(state.missionPool, newTarget.id)
+        squad.missionTargetId = newTarget.id
+        enterPhase(state, squad, 'InMission', newTarget.durationMs, rng)
+      }
+      break
+    }
+    case 'Returning':
+      enterPhase(state, squad, 'Returning', RETURNING_MS, rng)
+      break
+    case 'MissionReport':
+      enterPhase(state, squad, 'MissionReport', MISSION_REPORT_MS, rng)
+      break
+    case 'AtBase':
+      enterPhase(state, squad, 'AtBase', BASE_PAUSE_MS, rng)
+      break
+  }
+}
+
+function step(state: GameState, rng: Rng): void {
+  state.tick += 1
+  state.simTimeMs += TICK_STEP_MS
+
+  for (const squad of state.squads) {
+    squad.phaseTimeLeftMs -= TICK_STEP_MS
+
+    if (squad.phase === 'InMission') {
+      squad.missionElapsedMs += TICK_STEP_MS
+      squad.missionProgress = Math.min(
+        1,
+        squad.missionElapsedMs / (squad.missionTargetId
+          ? state.missionPool.find((t) => t.id === squad.missionTargetId)?.durationMs
+          ?? 45000
+          : 45000),
+      )
+      squad.nextEventInMs -= TICK_STEP_MS
+
+      const targetDuration = state.missionPool.find(
+        (t) => t.id === squad.missionTargetId,
+      )?.durationMs ?? 45000
+      const targetConfig = state.missionPool.find(
+        (t) => t.id === squad.missionTargetId,
+      )
+      const config = targetConfig
+        ? {
+            eventRateModifier: 1,
+            penaltyPercent: 10,
+            lootMultiplier: 1,
+          }
+        : { eventRateModifier: 1, penaltyPercent: 10, lootMultiplier: 1 }
+      squad.nextEventInMs -= Math.round(TICK_STEP_MS / config.eventRateModifier)
+
+      if (squad.nextEventInMs <= 0) {
+        const evt = rollMissionEvent(
+          squad,
+          rng,
+          state.tick,
+          state.simTimeMs,
+          targetConfig?.type ?? 'RECON',
+        )
+        squad.missionEvents.push(evt)
+        pushEvent(state, evt)
+        squad.nextEventInMs = EVENT_INTERVAL_MS
+      }
+
+      squad.missionProgress = Math.min(
+        1,
+        squad.missionElapsedMs / targetDuration,
+      )
+    }
+
+    if (squad.phase === 'Returning') {
+      squad.missionProgress = Math.max(
+        0,
+        squad.phaseTimeLeftMs / RETURNING_MS,
+      )
+    }
+
+    if (squad.phaseTimeLeftMs <= 0) {
+      advancePhase(state, squad, rng)
+    }
+  }
 }
 
 export interface Game {
@@ -93,144 +283,44 @@ export interface Game {
 export function createGame(options?: { seed?: number }): Game {
   const seed = options?.seed ?? 42
   const rng: Rng = createRng(seed)
-  const state = createInitialState(seed)
+  const squads = createInitialSquads()
+  const initialMissionPool = createInitialMissionPool(seed)
+
+  const state: GameState = {
+    tick: 0,
+    seed,
+    simTimeMs: 0,
+    missionIndex: 0,
+    squads,
+    baseStorage: createInitialStorage(),
+    eventLog: [],
+    lastReport: null,
+    mapNodes: MAP_NODES,
+    missionPool: initialMissionPool,
+  }
+
+  // Mark KOBRA-1 as starting resupply first
+  squads[0].phase = 'AtBase'
+  squads[0].phaseTimeLeftMs = BASE_PAUSE_MS
+  squads[1].phase = 'AtBase'
+  squads[1].phaseTimeLeftMs = BASE_PAUSE_MS
+
+  pushEvent(state, {
+    tick: 0,
+    simTimeMs: 0,
+    squadId: 'KOBRA-1',
+    type: 'phase',
+    message: 'KOBRA-1 and KOBRA-2 standing by',
+  })
+
   let accumulated = 0
-  let squadSnapshot: SquadState | null = null
-  let missionStartSimTime = 0
-
-  function buildReport(): void {
-    const readinessAfter = computeReadiness(state.squad)
-    const outcome: MissionReport['outcome'] =
-      readinessAfter > 20 ? 'success' : 'partial'
-    state.lastReport = {
-      outcome,
-      durationMs: state.simTimeMs - missionStartSimTime,
-      readinessBefore: state.readinessAtMissionStart,
-      readinessAfter,
-      events: [...state.missionEvents],
-      lootGained: squadSnapshot
-        ? lootGainedSince(state.squad, squadSnapshot)
-        : [],
-      itemsLost: squadSnapshot
-        ? itemsLostDuringMission(state.squad, squadSnapshot)
-        : [],
-    }
-  }
-
-  function enterPhase(phase: GamePhase, durationMs: number): void {
-    state.phase = phase
-    state.phaseTimeLeftMs = durationMs
-    pushEvent(state, {
-      tick: state.tick,
-      simTimeMs: state.simTimeMs,
-      type: 'phase',
-      message: PHASE_MESSAGES[phase],
-    })
-
-    if (phase === 'AtBase') {
-      resupplySquad(state.squad, state.baseStorage)
-      pushEvent(state, {
-        tick: state.tick,
-        simTimeMs: state.simTimeMs,
-        type: 'resupply',
-        message: 'Resupplying…',
-      })
-      state.missionProgress = 0
-      state.objective = getHqPosition()
-    }
-
-    if (phase === 'Deploying') {
-      state.missionProgress = 0
-    }
-
-    if (phase === 'InMission') {
-      state.missionIndex += 1
-      state.objective = rollObjective(rng)
-      state.missionProgress = 0
-      state.missionElapsedMs = 0
-      state.nextEventInMs = EVENT_INTERVAL_MS
-      state.missionEvents = []
-      state.readinessAtMissionStart = computeReadiness(state.squad)
-      squadSnapshot = cloneSquad(state.squad)
-      missionStartSimTime = state.simTimeMs
-    }
-
-    if (phase === 'Returning') {
-      state.missionProgress = 1
-    }
-
-    if (phase === 'MissionReport') {
-      buildReport()
-    }
-
-    state.squad.readiness = computeReadiness(state.squad)
-  }
-
-  function advancePhase(): void {
-    switch (state.phase) {
-      case 'AtBase':
-        enterPhase('Deploying', DEPLOYING_MS)
-        break
-      case 'Deploying':
-        enterPhase('InMission', MISSION_DURATION_MS)
-        break
-      case 'InMission':
-        enterPhase('Returning', RETURNING_MS)
-        break
-      case 'Returning':
-        enterPhase('MissionReport', MISSION_REPORT_MS)
-        break
-      case 'MissionReport':
-        enterPhase('AtBase', BASE_PAUSE_MS)
-        break
-    }
-  }
-
-  function step(): void {
-    state.tick += 1
-    state.simTimeMs += TICK_STEP_MS
-    state.phaseTimeLeftMs -= TICK_STEP_MS
-
-    if (state.phase === 'InMission') {
-      state.missionElapsedMs += TICK_STEP_MS
-      state.missionProgress = Math.min(
-        1,
-        state.missionElapsedMs / MISSION_DURATION_MS,
-      )
-      state.nextEventInMs -= TICK_STEP_MS
-      if (state.nextEventInMs <= 0) {
-        const evt = rollMissionEvent(
-          state.squad,
-          rng,
-          state.tick,
-          state.simTimeMs,
-        )
-        state.missionEvents.push(evt)
-        pushEvent(state, evt)
-        state.nextEventInMs = EVENT_INTERVAL_MS
-      }
-    }
-
-    if (state.phase === 'Returning') {
-      state.missionProgress = Math.max(
-        0,
-        state.phaseTimeLeftMs / RETURNING_MS,
-      )
-    }
-
-    state.squad.readiness = computeReadiness(state.squad)
-
-    if (state.phaseTimeLeftMs <= 0) {
-      advancePhase()
-    }
-  }
 
   return {
     tick(dtMs: number): void {
       accumulated += dtMs
       while (accumulated >= TICK_STEP_MS) {
         accumulated -= TICK_STEP_MS
-        step()
+        step(state, rng)
       }
     },
     getState(): GameState {

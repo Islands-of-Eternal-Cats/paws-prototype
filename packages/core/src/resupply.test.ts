@@ -1,10 +1,10 @@
 import { describe, it, expect } from 'vitest'
 import { resupplySquad } from './resupply.js'
-import { createInitialSquad, createInitialStorage } from './content.js'
+import { createInitialSquads, createInitialStorage } from './content.js'
 
 describe('resupplySquad', () => {
   it('refills medkit from base storage', () => {
-    const squad = createInitialSquad()
+    const [squad] = createInitialSquads()
     const medic = squad.units.find((u) => u.id === 'medic')!
     medic.slots.find((s) => s.slotId === 'medkit')!.itemId = null
     const storage = createInitialStorage()

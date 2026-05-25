@@ -1,5 +1,17 @@
-import type { ItemStack, MapNode, SquadState, UnitState } from './types.js'
-import { MAP_HEIGHT, MAP_WIDTH } from './config.js'
+import type {
+  ItemStack,
+  MapNode,
+  SquadState,
+  UnitState,
+  MissionTarget,
+  MissionType,
+  SquadId,
+  Doctrine,
+  GameState,
+} from './types.js'
+import { MAP_HEIGHT, MAP_WIDTH, MISSION_POOL_SIZE } from './config.js'
+import { createRng } from './rng.js'
+import { MISSION_TYPE_CONFIGS } from './config.js'
 
 export const MAP_NODES: MapNode[] = [
   { id: 'hq', label: 'NINE LIVES HQ', x: 120, y: 380 },
@@ -78,13 +90,32 @@ function buildUnit(def: (typeof UNIT_DEFS)[0]): UnitState {
   }
 }
 
-export function createInitialSquad(): SquadState {
-  return {
-    name: 'KOBRA-1',
+export const SQUAD_DEFS: Array<{
+  id: SquadId
+  name: string
+  doctrine: Doctrine
+}> = [
+  { id: 'KOBRA-1', name: 'KOBRA-1', doctrine: 'ASSAULT' },
+  { id: 'KOBRA-2', name: 'KOBRA-2', doctrine: 'RECON' },
+]
+
+export function createInitialSquads(): SquadState[] {
+  return SQUAD_DEFS.map((def) => ({
+    id: def.id,
+    name: def.name,
     readiness: 100,
+    doctrine: def.doctrine,
     units: UNIT_DEFS.map(buildUnit),
     cargo: [],
-  }
+    phase: 'AtBase' as const,
+    phaseTimeLeftMs: 0,
+    missionProgress: 0,
+    missionTargetId: null,
+    missionElapsedMs: 0,
+    nextEventInMs: 0,
+    missionEvents: [],
+    readinessAtMissionStart: 100,
+  }))
 }
 
 export function createInitialStorage(): ItemStack[] {
@@ -130,5 +161,97 @@ export function clampObjective(pos: { x: number; y: number }): { x: number; y: n
   return {
     x: Math.max(40, Math.min(MAP_WIDTH - 40, pos.x)),
     y: Math.max(40, Math.min(MAP_HEIGHT - 40, pos.y)),
+  }
+}
+
+// Mission pool helpers
+
+const DOCTRINE_PRIORITY: Record<Doctrine, Doctrine[]> = {
+  ASSAULT: ['ASSAULT', 'RECON', 'PATROL'],
+  RECON: ['RECON', 'PATROL', 'ASSAULT'],
+  PATROL: ['PATROL', 'RECON', 'ASSAULT'],
+}
+
+export function createInitialMissionPool(seed: number): MissionTarget[] {
+  const rng = createRng(seed)
+  return generateMissionPool(rng, seed)
+}
+
+function generateMissionPool(rng: ReturnType<typeof createRng>, _seed: number): MissionTarget[] {
+  const types: MissionType[] = ['PATROL', 'RECON', 'ASSAULT']
+  const weights = [0.4, 0.35, 0.25]
+  const pool: MissionTarget[] = []
+  const pois = MAP_NODES.filter((n) => n.id !== 'hq')
+
+  for (let i = 0; i < MISSION_POOL_SIZE; i++) {
+    const type = weightedRoll(types, weights, rng)
+    const node = pois[rng.int(0, pois.length - 1)]
+    pool.push({
+      id: `target-${i}`,
+      nodeId: node.id,
+      label: node.label,
+      type,
+      x: node.x,
+      y: node.y,
+      durationMs: MISSION_TYPE_CONFIGS[type].durationMs,
+    })
+  }
+  return pool
+}
+
+function weightedRoll(
+  items: MissionType[],
+  weights: number[],
+  rng: ReturnType<typeof createRng>,
+): MissionType {
+  const r = rng.next()
+  let cumulative = 0
+  for (let i = 0; i < items.length; i++) {
+    cumulative += weights[i]
+    if (r < cumulative) return items[i]
+  }
+  return items[items.length - 1]
+}
+
+export function selectTargetForSquad(
+  pool: MissionTarget[],
+  doctrine: Doctrine,
+): MissionTarget | undefined {
+  const priority = DOCTRINE_PRIORITY[doctrine]
+  for (const dtype of priority) {
+    const match = pool.find((t) => t.type === dtype)
+    if (match) return match
+  }
+  // Fallback: first available
+  return pool.length > 0 ? pool[0] : undefined
+}
+
+export function removeTargetFromPool(pool: MissionTarget[], targetId: string): void {
+  const idx = pool.findIndex((t) => t.id === targetId)
+  if (idx >= 0) pool.splice(idx, 1)
+}
+
+export function regenerateMissionPool(
+  pool: MissionTarget[],
+  seed: number,
+): void {
+  const rng = createRng(seed + Date.now())
+  const types: MissionType[] = ['PATROL', 'RECON', 'ASSAULT']
+  const weights = [0.4, 0.35, 0.25]
+  const pois = MAP_NODES.filter((n) => n.id !== 'hq')
+  pool.length = 0
+
+  for (let i = 0; i < MISSION_POOL_SIZE; i++) {
+    const type = weightedRoll(types, weights, rng)
+    const node = pois[rng.int(0, pois.length - 1)]
+    pool.push({
+      id: `target-${Date.now()}-${i}`,
+      nodeId: node.id,
+      label: node.label,
+      type,
+      x: node.x,
+      y: node.y,
+      durationMs: MISSION_TYPE_CONFIGS[type].durationMs,
+    })
   }
 }

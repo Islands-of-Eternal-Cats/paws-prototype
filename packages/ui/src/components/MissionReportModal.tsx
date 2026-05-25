@@ -5,7 +5,8 @@ interface Props {
 }
 
 export function MissionReportModal({ state }: Props) {
-  if (state.phase !== 'MissionReport' || !state.lastReport) return null
+  const reportSquad = state.squads.find((s) => s.phase === 'MissionReport')
+  if (!reportSquad || !state.lastReport) return null
 
   const report = state.lastReport
   const headline =
@@ -18,7 +19,7 @@ export function MissionReportModal({ state }: Props) {
   return (
     <div className="report-modal-backdrop">
       <div className="report-modal">
-        <h2>{headline}</h2>
+        <h2>[{reportSquad.id}] {headline}</h2>
         <p>
           Readiness {report.readinessBefore}% → {report.readinessAfter}%
         </p>
@@ -27,9 +28,14 @@ export function MissionReportModal({ state }: Props) {
           <>
             <strong>Events</strong>
             <ul>
-              {report.events.map((e, i) => (
-                <li key={i}>{e.message}</li>
-              ))}
+              {report.events.map((e, i) => {
+                const color = e.squadId === 'KOBRA-1' ? '#4ecdc4' : '#f0a500'
+                return (
+                  <li key={i} style={{ color }}>
+                    [{e.squadId}] {e.message}
+                  </li>
+                )
+              })}
             </ul>
           </>
         )}

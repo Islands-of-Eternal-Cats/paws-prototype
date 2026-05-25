@@ -1,31 +1,47 @@
-import type { GamePhase } from '@paws/core'
+import type { GameState } from '@paws/core'
 
 interface Props {
-  phase: GamePhase
-  phaseTimeLeftMs: number
+  state: GameState
 }
 
-export function PhaseBanner({ phase, phaseTimeLeftMs }: Props) {
-  const sec = Math.ceil(phaseTimeLeftMs / 1000)
-  let text: string | null = null
+const PHASE_LABELS: Record<string, string> = {
+  AtBase: 'RESUPPLYING…',
+  Deploying: 'DEPLOYING',
+  InMission: 'ON MISSION',
+  Returning: 'RETURNING TO HQ',
+  MissionReport: 'MISSION DEBRIEF',
+}
 
-  switch (phase) {
-    case 'AtBase':
-      text = `RESUPPLYING… ${sec}s`
-      break
-    case 'InMission':
-      text = 'ON MISSION'
-      break
-    case 'Returning':
-      text = 'RETURNING TO HQ'
-      break
-    case 'Deploying':
-      text = 'DEPLOYING'
-      break
-    default:
-      text = null
+export function PhaseBanner({ state }: Props) {
+  const activeSquads = state.squads.filter(
+    (s) => s.phase !== 'AtBase' && s.phase !== 'MissionReport',
+  )
+
+  if (activeSquads.length === 0) {
+    const atBase = state.squads.find((s) => s.phase === 'AtBase')
+    if (!atBase) return null
+    const sec = Math.ceil(atBase.phaseTimeLeftMs / 1000)
+    return <div className="phase-banner">{PHASE_LABELS.AtBase} {sec}s</div>
   }
 
-  if (!text) return null
-  return <div className="phase-banner">{text}</div>
+  return (
+    <div className="phase-banner">
+      {activeSquads.map((s) => {
+        const label = PHASE_LABELS[s.phase] || s.phase
+        if (s.phase === 'AtBase') {
+          const sec = Math.ceil(s.phaseTimeLeftMs / 1000)
+          return (
+            <span key={s.id}>
+              [{s.id}] {label} {sec}s
+            </span>
+          )
+        }
+        return <span key={s.id}>[{s.id}] {label}</span>
+      }).reduce((prev, curr, i, arr) => i === 0 ? curr : (
+        <span>
+          {prev} | {curr}
+        </span>
+      ))}
+    </div>
+  )
 }

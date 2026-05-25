@@ -1,6 +1,8 @@
 import type { GameEvent, SquadState } from './types.js'
 import { getTemplateSlotsForUnit } from './content.js'
 import type { Rng } from './rng.js'
+import { MissionTypeConfig, MISSION_TYPE_CONFIGS } from './config.js'
+import type { MissionType } from './types.js'
 
 const CONSUMABLE_SLOTS = new Set(['medkit', 'toolkit', 'scanner'])
 
@@ -15,6 +17,7 @@ export function applyEncounter(
   rng: Rng,
   tick: number,
   simTimeMs: number,
+  penaltyPercent: number,
 ): GameEvent {
   const unit = squad.units[rng.int(0, squad.units.length - 1)]
   const clearable = unit.slots.filter(
@@ -29,8 +32,9 @@ export function applyEncounter(
   return {
     tick,
     simTimeMs,
+    squadId: squad.id,
     type: 'encounter',
-    message: `${unit.name} took fire — lost ${lost ?? 'gear'}`,
+    message: `${unit.name} took fire — lost ${lost ?? 'gear'} (${penaltyPercent}% penalty)`,
   }
 }
 
@@ -39,14 +43,17 @@ export function applyLoot(
   rng: Rng,
   tick: number,
   simTimeMs: number,
+  lootMultiplier: number,
 ): GameEvent {
-  const qty = rng.int(1, 3)
+  const baseQty = rng.int(1, 3)
+  const qty = Math.max(1, Math.round(baseQty * lootMultiplier))
   addCargo(squad, 'scrap', qty)
   return {
     tick,
     simTimeMs,
+    squadId: squad.id,
     type: 'loot',
-    message: `Salvaged ${qty} scrap`,
+    message: `Salvaged ${qty} scrap (${lootMultiplier}x multiplier)`,
   }
 }
 
@@ -74,8 +81,36 @@ export function applyBreakdown(
   return {
     tick,
     simTimeMs,
+    squadId: squad.id,
     type: 'breakdown',
     message: `${unit.name} gear failure — ${lost} unserviceable`,
+  }
+}
+
+export function applyDetection(
+  squad: SquadState,
+  rng: Rng,
+  tick: number,
+  simTimeMs: number,
+): GameEvent {
+  const unit = squad.units[rng.int(0, squad.units.length - 1)]
+  const stealth = unit.slots.some((s) => s.itemId === 'cloak')
+  if (stealth && rng.next() > 0.5) {
+    return {
+      tick,
+      simTimeMs,
+      squadId: squad.id,
+      type: 'detection',
+      message: `${unit.name} evaded detection using cloak`,
+    }
+  }
+  // Detection succeeded — no readiness loss but could trigger encounter
+  return {
+    tick,
+    simTimeMs,
+    squadId: squad.id,
+    type: 'detection',
+    message: `${unit.name} detected by enemy scouts — no casualties`,
   }
 }
 
@@ -84,11 +119,39 @@ export function rollMissionEvent(
   rng: Rng,
   tick: number,
   simTimeMs: number,
+  missionType: MissionType,
 ): GameEvent {
-  const roll = rng.int(0, 2)
-  if (roll === 0) return applyEncounter(squad, rng, tick, simTimeMs)
-  if (roll === 1) return applyLoot(squad, rng, tick, simTimeMs)
-  return applyBreakdown(squad, rng, tick, simTimeMs)
+  const config = MISSION_TYPE_CONFIGS[missionType]
+  const { encounter, detection, loot, breakdown } = config.eventWeights
+
+  // Build weighted event selection
+  const events: Array<{ type: string; weight: number }> = []
+  if (encounter > 0) events.push({ type: 'encounter', weight: encounter })
+  if (detection > 0) events.push({ type: 'detection', weight: detection })
+  if (loot > 0) events.push({ type: 'loot', weight: loot })
+  if (breakdown > 0) events.push({ type: 'breakdown', weight: breakdown })
+
+  const totalWeight = events.reduce((sum, e) => sum + e.weight, 0)
+  let r = rng.next() * totalWeight
+
+  for (const evt of events) {
+    r -= evt.weight
+    if (r <= 0) {
+      switch (evt.type) {
+        case 'encounter':
+          return applyEncounter(squad, rng, tick, simTimeMs, config.penaltyPercent)
+        case 'detection':
+          return applyDetection(squad, rng, tick, simTimeMs)
+        case 'loot':
+          return applyLoot(squad, rng, tick, simTimeMs, config.lootMultiplier)
+        case 'breakdown':
+          return applyBreakdown(squad, rng, tick, simTimeMs)
+      }
+    }
+  }
+
+  // Fallback to first available
+  return applyEncounter(squad, rng, tick, simTimeMs, config.penaltyPercent)
 }
 
 export function itemsLostDuringMission(squad: SquadState, before: SquadState): string[] {

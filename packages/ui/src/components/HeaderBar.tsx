@@ -31,6 +31,12 @@ export function HeaderBar({ state }: Props) {
           <div className="resource-item__label">Ammo</div>
           <div className="resource-item__value">{ammo}</div>
         </div>
+        <div className="resource-item">
+          <div className="resource-item__label">Squads</div>
+          <div className="resource-item__value">
+            {state.squads.filter((s) => s.phase !== 'AtBase').length}/{state.squads.length}
+          </div>
+        </div>
       </div>
       <div className="header-clock">
         <div className="header-clock__day">DAY {formatDay(state.simTimeMs)}</div>

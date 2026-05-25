@@ -6,10 +6,14 @@ interface Props {
 }
 
 export function SquadDetailPanel({ state }: Props) {
+  const active = state.squads.find(
+    (s) => s.phase === 'InMission' || s.phase === 'Returning' || s.phase === 'Deploying',
+  ) || state.squads[0]
+
   return (
     <section className="panel-section">
-      <h2 className="squad-detail__name">{state.squad.name}</h2>
-      <div className="squad-detail__readiness-big">{state.squad.readiness}%</div>
+      <h2 className="squad-detail__name">{active.name}</h2>
+      <div className="squad-detail__readiness-big">{active.readiness}%</div>
       <div className="detail-tabs">
         <button type="button" className="active" disabled>
           OVERVIEW
@@ -23,15 +27,19 @@ export function SquadDetailPanel({ state }: Props) {
       </div>
       <div className="stat-row">
         <span>Status</span>
-        <span>{phaseToStatus(state.phase)}</span>
+        <span>{phaseToStatus(active.phase)}</span>
       </div>
       <div className="stat-row">
         <span>Location</span>
-        <span>{phaseToLocation(state.phase)}</span>
+        <span>{phaseToLocation(active.phase)}</span>
       </div>
       <div className="stat-row">
         <span>Combat Readiness</span>
-        <span>{state.squad.readiness}%</span>
+        <span>{active.readiness}%</span>
+      </div>
+      <div className="stat-row">
+        <span>Doctrine</span>
+        <span>{active.doctrine}</span>
       </div>
       <button type="button" className="btn-primary" disabled>
         AUTO
@@ -40,7 +48,7 @@ export function SquadDetailPanel({ state }: Props) {
         <input type="checkbox" checked disabled readOnly />
         Auto Resupply
       </label>
-      <div className="template-row">Template: ASSAULT</div>
+      <div className="template-row">Template: {active.doctrine}</div>
     </section>
   )
 }

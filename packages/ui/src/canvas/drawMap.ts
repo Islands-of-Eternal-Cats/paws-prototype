@@ -1,4 +1,21 @@
-import { MAP_EDGES, getHqPosition, type GameState } from '@paws/core'
+import { MAP_EDGES, getHqPosition, type GameState, type SquadState } from '@paws/core'
+
+const SQUAD_COLORS: Record<string, string> = {
+  'KOBRA-1': '#4ecdc4',
+  'KOBRA-2': '#f0a500',
+}
+
+function getSquadPosition(squad: SquadState): { x: number; y: number } | null {
+  if (squad.phase !== 'InMission' && squad.phase !== 'Returning' && squad.phase !== 'Deploying') {
+    return null
+  }
+  const hq = getHqPosition()
+  if (squad.missionTargetId) {
+    // Find target position from mission pool
+    return { x: hq.x, y: hq.y } // fallback
+  }
+  return hq
+}
 
 export function drawMap(
   ctx: CanvasRenderingContext2D,
@@ -36,12 +53,20 @@ export function drawMap(
   ctx.setLineDash([])
 
   for (const node of state.mapNodes) {
-    const isObjective =
-      state.phase === 'InMission' || state.phase === 'Returning'
     const isHq = node.id === 'hq'
-    const isTarget =
-      isObjective &&
-      Math.hypot(node.x - state.objective.x, node.y - state.objective.y) < 40
+
+    // Check if any squad has this node as objective
+    let isTarget = false
+    for (const squad of state.squads) {
+      if (squad.missionTargetId) {
+        // Find target by nodeId
+        const target = state.missionPool.find((t) => t.id === squad.missionTargetId)
+        if (target && target.nodeId === node.id) {
+          isTarget = true
+          break
+        }
+      }
+    }
 
     ctx.beginPath()
     ctx.arc(sx(node.x), sy(node.y), isTarget ? 10 : 7, 0, Math.PI * 2)
@@ -57,31 +82,45 @@ export function drawMap(
     ctx.fillText(node.label, sx(node.x), sy(node.y) + 22)
   }
 
-  const hq = getHqPosition()
-  const t = state.objective
-  const progress =
-    state.phase === 'Returning'
-      ? state.missionProgress
-      : state.phase === 'InMission'
-        ? state.missionProgress
-        : 0
-  const px = hq.x + (t.x - hq.x) * progress
-  const py = hq.y + (t.y - hq.y) * progress
+  // Draw squad markers
+  for (const squad of state.squads) {
+    const pos = getSquadPosition(squad)
+    if (!pos) continue
 
-  if (
-    state.phase === 'InMission' ||
-    state.phase === 'Returning' ||
-    state.phase === 'Deploying'
-  ) {
+    const hq = getHqPosition()
+    let px = hq.x
+    let py = hq.y
+
+    if (squad.missionTargetId) {
+      const target = state.missionPool.find((t) => t.id === squad.missionTargetId)
+      if (target) {
+        const progress =
+          squad.phase === 'Returning'
+            ? squad.missionProgress
+            : squad.phase === 'InMission'
+              ? squad.missionProgress
+              : 0
+        px = hq.x + (target.x - hq.x) * progress
+        py = hq.y + (target.y - hq.y) * progress
+      }
+    }
+
+    const color = SQUAD_COLORS[squad.id] || '#4ecdc4'
     ctx.beginPath()
     ctx.moveTo(sx(px), sy(py) - 10)
     ctx.lineTo(sx(px) - 8, sy(py) + 8)
     ctx.lineTo(sx(px) + 8, sy(py) + 8)
     ctx.closePath()
-    ctx.fillStyle = '#4ecdc4'
+    ctx.fillStyle = color
     ctx.fill()
     ctx.strokeStyle = '#fff'
     ctx.lineWidth = 1
     ctx.stroke()
+
+    // Label
+    ctx.fillStyle = color
+    ctx.font = 'bold 10px Rajdhani, sans-serif'
+    ctx.textAlign = 'center'
+    ctx.fillText(squad.id, sx(px), sy(py) - 14)
   }
 }
