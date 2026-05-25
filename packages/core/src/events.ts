@@ -1,9 +1,9 @@
 import type { GameEvent, SquadState } from './types.js'
 import { getTemplateSlotsForUnit } from './content.js'
 import type { Rng } from './rng.js'
-import { MissionTypeConfig, MISSION_TYPE_CONFIGS, BODY_LOOT_TABLE } from './config.js'
+import { MISSION_TYPE_CONFIGS, BODY_LOOT_TABLE } from './config.js'
 import type { MissionType } from './types.js'
-import { calcWeight, addLootToUnitBackpack } from './weight.js'
+import { addLootToUnitBackpack } from './weight.js'
 
 const CONSUMABLE_SLOTS = new Set(['medkit', 'toolkit', 'scanner'])
 
@@ -45,7 +45,7 @@ export function applyEncounter(
   }
 }
 
-export function scavengeBody(squad: SquadState, rng: { next(): number }, tick: number, simTimeMs: number): GameEvent {
+export function scavengeBody(squad: SquadState, rng: Rng, tick: number, simTimeMs: number): GameEvent {
   const totalWeight = BODY_LOOT_TABLE.reduce((sum, e) => sum + e.chance, 0)
   let r = rng.next() * totalWeight
 
