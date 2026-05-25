@@ -120,6 +120,7 @@ export const SQUAD_DEFS: Array<{
 }> = [
   { id: 'KOBRA-1', name: 'KOBRA-1', doctrine: 'ASSAULT' },
   { id: 'KOBRA-2', name: 'KOBRA-2', doctrine: 'RECON' },
+  { id: 'KOBRA-3', name: 'KOBRA-3', doctrine: 'SALVAGE' },
 ]
 
 export function createInitialSquads(): SquadState[] {

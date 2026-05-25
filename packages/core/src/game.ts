@@ -46,6 +46,13 @@ const PHASE_MESSAGES: Record<SquadId & string, Record<string, string>> = {
     Returning: 'KOBRA-2 returning to HQ',
     MissionReport: 'KOBRA-2 mission debrief',
   },
+  'KOBRA-3': {
+    AtBase: 'KOBRA-3 at HQ — resupply',
+    Deploying: 'KOBRA-3 deploying',
+    InMission: 'KOBRA-3 on mission',
+    Returning: 'KOBRA-3 returning to HQ',
+    MissionReport: 'KOBRA-3 mission debrief',
+  },
 }
 
 function pushEvent(state: GameState, event: GameEvent): void {

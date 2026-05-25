@@ -7,7 +7,7 @@ export type GamePhase =
 
 export type PlayerCommand = never
 
-export type SquadId = 'KOBRA-1' | 'KOBRA-2'
+export type SquadId = 'KOBRA-1' | 'KOBRA-2' | 'KOBRA-3'
 
 export type Doctrine = 'ASSAULT' | 'RECON' | 'SALVAGE' | 'PATROL'
 

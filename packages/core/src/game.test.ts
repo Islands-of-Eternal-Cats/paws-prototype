@@ -6,11 +6,14 @@ describe('createGame', () => {
   it('starts with 2 squads at AtBase', () => {
     const game = createGame({ seed: 1 })
     const state = game.getState()
-    expect(state.squads).toHaveLength(2)
+    expect(state.squads).toHaveLength(3)
     expect(state.squads[0].phase).toBe('AtBase')
     expect(state.squads[1].phase).toBe('AtBase')
+    expect(state.squads[2].phase).toBe('AtBase')
     expect(state.squads[0].id).toBe('KOBRA-1')
     expect(state.squads[1].id).toBe('KOBRA-2')
+    expect(state.squads[2].id).toBe('KOBRA-3')
+    expect(state.squads[2].doctrine).toBe('SALVAGE')
     expect(state.squads[0].doctrine).toBe('ASSAULT')
     expect(state.squads[1].doctrine).toBe('RECON')
     expect(state.missionPool.length).toBeGreaterThan(0)
@@ -36,15 +39,19 @@ describe('createGame', () => {
     expect(run(99)).not.toBe(run(100))
   })
 
-  it('squads have independent phase cycles', () => {
+  it('3 squads have independent phase cycles', () => {
     const game = createGame({ seed: 42 })
     const ticks = Math.ceil(BASE_PAUSE_MS / TICK_STEP_MS) + 1
     for (let i = 0; i < ticks; i++) game.tick(TICK_STEP_MS)
     const state = game.getState()
-    // After base pause, both should be deploying or beyond
+    expect(state.squads).toHaveLength(3)
     for (const squad of state.squads) {
       expect(squad.phase).not.toBe('AtBase')
     }
+    const ids = state.squads.map((s) => s.id)
+    expect(ids).toContain('KOBRA-1')
+    expect(ids).toContain('KOBRA-2')
+    expect(ids).toContain('KOBRA-3')
   })
 
   it('event log has squadId prefixes', () => {
