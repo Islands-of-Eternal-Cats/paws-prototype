@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest'
-import { selectTargetForSquad, regenerateMissionPool } from './content.js'
+import { selectTargetForSquad, regenerateMissionPool, createInitialSquads, getSquadUnits, createInitialStorage } from './content.js'
+import { MISSION_TYPE_CONFIGS } from './config.js'
 import type { MissionTarget, Doctrine } from './types.js'
 
 function makePool(types: Doctrine[]): MissionTarget[] {
@@ -30,7 +31,7 @@ describe('selectTargetForSquad', () => {
   it('falls back to next priority when exact match absent', () => {
     const pool = makePool(['PATROL', 'ASSAULT'])
     const result = selectTargetForSquad(pool, 'RECON')
-    expect(result?.type).toBe('PATROL') // RECON → PATROL → ASSAULT
+    expect(result?.type).toBe('ASSAULT') // RECON → SALVAGE → ASSAULT → PATROL
   })
 
   it('ASSAULT fallback chain: ASSAULT > RECON > PATROL', () => {
@@ -62,8 +63,61 @@ describe('regenerateMissionPool', () => {
     regenerateMissionPool(pool, 99)
     expect(pool).toHaveLength(3)
     for (const t of pool) {
-      expect(t.type).toMatch(/^(ASSAULT|RECON|PATROL)$/)
+      expect(t.type).toMatch(/^(ASSAULT|RECON|PATROL|SALVAGE)$/)
       expect(t.id).not.toMatch(/^old-/)
     }
+  })
+})
+
+describe('SALVAGE doctrine', () => {
+  it('SALVAGE doctrine picks SALVAGE first', () => {
+    const pool = makePool(['PATROL', 'SALVAGE', 'RECON'])
+    const result = selectTargetForSquad(pool, 'SALVAGE')
+    expect(result?.type).toBe('SALVAGE')
+  })
+
+  it('ASSAULT picks SALVAGE over PATROL', () => {
+    const pool = makePool(['PATROL', 'SALVAGE'])
+    const result = selectTargetForSquad(pool, 'ASSAULT')
+    expect(result?.type).toBe('SALVAGE')
+  })
+
+  it('MISSION_TYPE_CONFIGS SALVAGE: high loot, low risk', () => {
+    const cfg = MISSION_TYPE_CONFIGS.SALVAGE
+    expect(cfg.lootMultiplier).toBe(3)
+    expect(cfg.penaltyPercent).toBe(3)
+    expect(cfg.durationMs).toBe(25000)
+    expect(cfg.eventRateModifier).toBe(0.6)
+  })
+})
+
+describe('geologist unit', () => {
+  it('SALVAGE squad gets geologist instead of scout', () => {
+    const units = getSquadUnits('SALVAGE')
+    const ids = units.map((u) => u.id)
+    expect(ids).toContain('geologist')
+    expect(ids).not.toContain('scout')
+    expect(ids).toContain('medic')
+    expect(ids).toContain('engineer')
+  })
+
+  it('ASSAULT squad gets scout not geologist', () => {
+    const units = getSquadUnits('ASSAULT')
+    const ids = units.map((u) => u.id)
+    expect(ids).toContain('scout')
+    expect(ids).not.toContain('geologist')
+  })
+
+  it('SALVAGE squad geologist has drill slot', () => {
+    const units = getSquadUnits('SALVAGE')
+    const geologist = units.find((u) => u.id === 'geologist')!
+    const drillSlot = geologist.slots.find((s) => s.slotId === 'drill')
+    expect(drillSlot?.itemId).toBe('drill')
+  })
+
+  it('storage includes drill', () => {
+    const storage = createInitialStorage()
+    const drill = storage.find((s) => s.itemId === 'drill')
+    expect(drill?.qty).toBe(3)
   })
 })

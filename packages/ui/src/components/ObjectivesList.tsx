@@ -7,6 +7,7 @@ interface Props {
 const TYPE_BADGE: Record<string, string> = {
   ASSAULT: 'badge--danger',
   RECON: 'badge--medium',
+  SALVAGE: 'badge--salvage',
   PATROL: 'badge--ready',
 }
 

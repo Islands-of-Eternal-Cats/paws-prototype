@@ -5,6 +5,7 @@ const ROLE_EMOJI: Record<string, string> = {
   Medic: '🩺',
   Engineer: '🔧',
   Scout: '👁',
+  Geologist: '⛏',
 }
 
 const SLOT_LABEL: Record<string, string> = {
@@ -13,6 +14,7 @@ const SLOT_LABEL: Record<string, string> = {
   medkit: 'MED',
   toolkit: 'TKT',
   scanner: 'SCN',
+  drill: 'DRILL',
 }
 
 interface Props {

@@ -9,7 +9,7 @@ export type PlayerCommand = never
 
 export type SquadId = 'KOBRA-1' | 'KOBRA-2'
 
-export type Doctrine = 'ASSAULT' | 'RECON' | 'PATROL'
+export type Doctrine = 'ASSAULT' | 'RECON' | 'SALVAGE' | 'PATROL'
 
 export type MissionType = Doctrine
 

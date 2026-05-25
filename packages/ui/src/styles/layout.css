@@ -84,6 +84,11 @@
   color: var(--warn);
 }
 
+.badge--salvage {
+  background: rgba(155, 89, 182, 0.2);
+  color: #9b59b6;
+}
+
 .progress-bar {
   height: 4px;
   background: var(--border);

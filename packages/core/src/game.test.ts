@@ -63,7 +63,7 @@ describe('createGame', () => {
     const state = game.getState()
     expect(state.missionPool).toHaveLength(3)
     for (const target of state.missionPool) {
-      expect(['ASSAULT', 'RECON', 'PATROL']).toContain(target.type)
+      expect(['ASSAULT', 'RECON', 'PATROL', 'SALVAGE']).toContain(target.type)
     }
   })
 

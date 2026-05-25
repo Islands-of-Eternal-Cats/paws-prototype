@@ -38,6 +38,13 @@ export const MISSION_TYPE_CONFIGS: Record<MissionType, MissionTypeConfig> = {
     lootMultiplier: 1,
     eventWeights: { encounter: 30, detection: 30, loot: 30, breakdown: 10 },
   },
+  SALVAGE: {
+    durationMs: 25000,
+    eventRateModifier: 0.6,
+    penaltyPercent: 3,
+    lootMultiplier: 3,
+    eventWeights: { encounter: 10, detection: 10, loot: 70, breakdown: 10 },
+  },
   ASSAULT: {
     durationMs: 60000,
     eventRateModifier: 1.5,

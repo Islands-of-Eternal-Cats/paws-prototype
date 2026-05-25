@@ -70,6 +70,16 @@ const UNIT_DEFS: Array<{
       { slotId: 'scanner', itemId: 'scanner' },
     ],
   },
+  {
+    id: 'geologist',
+    name: 'CORE',
+    role: 'Geologist',
+    template: [
+      { slotId: 'weapon', itemId: 'shotgun' },
+      { slotId: 'armor', itemId: 'light_armor' },
+      { slotId: 'drill', itemId: 'drill' },
+    ],
+  },
 ]
 
 export function getTemplateSlotsForUnit(unitId: string): TemplateSlot[] {
@@ -90,6 +100,19 @@ function buildUnit(def: (typeof UNIT_DEFS)[0]): UnitState {
   }
 }
 
+export function getSquadUnits(doctrine: Doctrine): UnitState[] {
+  if (doctrine === 'SALVAGE') {
+    // SALVAGE: medic + engineer + geologist
+    return UNIT_DEFS
+      .filter((u) => ['medic', 'engineer', 'geologist'].includes(u.id))
+      .map(buildUnit)
+  }
+  // Default: medic + engineer + scout
+  return UNIT_DEFS
+    .filter((u) => ['medic', 'engineer', 'scout'].includes(u.id))
+    .map(buildUnit)
+}
+
 export const SQUAD_DEFS: Array<{
   id: SquadId
   name: string
@@ -105,7 +128,7 @@ export function createInitialSquads(): SquadState[] {
     name: def.name,
     readiness: 100,
     doctrine: def.doctrine,
-    units: UNIT_DEFS.map(buildUnit),
+    units: getSquadUnits(def.doctrine),
     cargo: [],
     phase: 'AtBase' as const,
     phaseTimeLeftMs: 0,
@@ -123,6 +146,7 @@ export function createInitialStorage(): ItemStack[] {
     { itemId: 'ammo', qty: 200 },
     { itemId: 'medkit', qty: 10 },
     { itemId: 'toolkit', qty: 5 },
+    { itemId: 'drill', qty: 3 },
     { itemId: 'fuel', qty: 80 },
     { itemId: 'materials', qty: 120 },
     { itemId: 'scrap', qty: 0 },
@@ -167,9 +191,10 @@ export function clampObjective(pos: { x: number; y: number }): { x: number; y: n
 // Mission pool helpers
 
 const DOCTRINE_PRIORITY: Record<Doctrine, Doctrine[]> = {
-  ASSAULT: ['ASSAULT', 'RECON', 'PATROL'],
-  RECON: ['RECON', 'PATROL', 'ASSAULT'],
-  PATROL: ['PATROL', 'RECON', 'ASSAULT'],
+  ASSAULT: ['ASSAULT', 'RECON', 'SALVAGE', 'PATROL'],
+  RECON: ['RECON', 'SALVAGE', 'ASSAULT', 'PATROL'],
+  SALVAGE: ['SALVAGE', 'PATROL', 'RECON', 'ASSAULT'],
+  PATROL: ['PATROL', 'SALVAGE', 'RECON', 'ASSAULT'],
 }
 
 export function createInitialMissionPool(seed: number): MissionTarget[] {
@@ -178,8 +203,8 @@ export function createInitialMissionPool(seed: number): MissionTarget[] {
 }
 
 function generateMissionPool(rng: ReturnType<typeof createRng>, _seed: number): MissionTarget[] {
-  const types: MissionType[] = ['PATROL', 'RECON', 'ASSAULT']
-  const weights = [0.4, 0.35, 0.25]
+  const types: MissionType[] = ['PATROL', 'RECON', 'SALVAGE', 'ASSAULT']
+  const weights = [0.35, 0.25, 0.25, 0.15]
   const pool: MissionTarget[] = []
   const pois = MAP_NODES.filter((n) => n.id !== 'hq')
 
@@ -236,8 +261,8 @@ export function regenerateMissionPool(
   seed: number,
 ): void {
   const rng = createRng(seed + Date.now())
-  const types: MissionType[] = ['PATROL', 'RECON', 'ASSAULT']
-  const weights = [0.4, 0.35, 0.25]
+  const types: MissionType[] = ['PATROL', 'RECON', 'SALVAGE', 'ASSAULT']
+  const weights = [0.35, 0.25, 0.25, 0.15]
   const pois = MAP_NODES.filter((n) => n.id !== 'hq')
   pool.length = 0
 
