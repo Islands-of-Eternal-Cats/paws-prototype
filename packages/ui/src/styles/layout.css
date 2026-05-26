@@ -196,15 +196,29 @@
   display: flex;
   gap: 0.25rem;
   margin-top: 0.25rem;
+  align-items: center;
 }
 
-.transport-controls button {
+.transport-controls__btn {
   background: var(--panel-elevated);
   border: 1px solid var(--border);
   color: var(--muted);
   padding: 0.15rem 0.4rem;
   font-size: 0.7rem;
-  cursor: not-allowed;
+  cursor: pointer;
+  transition: color 0.1s, border-color 0.1s;
+  min-width: 2rem;
+  text-align: center;
+}
+
+.transport-controls__btn:hover {
+  color: var(--accent);
+  border-color: var(--accent);
+}
+
+.transport-controls__btn--speed {
+  font-size: 0.65rem;
+  letter-spacing: 0.05em;
 }
 
 .map-panel {

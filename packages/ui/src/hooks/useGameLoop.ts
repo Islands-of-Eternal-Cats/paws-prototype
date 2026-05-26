@@ -1,9 +1,23 @@
 import { createGame, type GameState } from '@paws/core'
-import { useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 
-export function useGameLoop(): GameState {
+const SPEEDS = [1, 2, 5] as const
+
+export function useGameLoop(): { state: GameState; isPlaying: boolean; speed: number; setPlaying: (v: boolean) => void; cycleSpeed: () => void } {
   const gameRef = useRef(createGame({ seed: 42 }))
   const [state, setState] = useState(() => gameRef.current.getState())
+
+  const setPlaying = useCallback((v: boolean) => {
+    gameRef.current.setPlaying(v)
+  }, [])
+
+  const cycleSpeed = useCallback(() => {
+    const cur = gameRef.current.speed as 1 | 2 | 5
+    const idx = SPEEDS.indexOf(cur)
+    const next = SPEEDS[(idx + 1) % SPEEDS.length] as 1 | 2 | 5
+    gameRef.current.setSpeed(next)
+    setState(gameRef.current.getState())
+  }, [])
 
   useEffect(() => {
     let raf = 0
@@ -19,9 +33,8 @@ export function useGameLoop(): GameState {
     return () => cancelAnimationFrame(raf)
   }, [])
 
-  // DEBUG
   if (state.tick > 0 && state.tick % 100 === 0) {
     console.log('tick:', state.tick, 'squads:', state.squads.length, state.squads.map(s => ({ id: s.id, phase: s.phase })))
   }
-  return state
+  return { state, isPlaying: gameRef.current.isPlaying, speed: gameRef.current.speed, setPlaying, cycleSpeed }
 }

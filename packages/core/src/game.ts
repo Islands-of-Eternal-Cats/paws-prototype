@@ -293,6 +293,10 @@ function step(state: GameState, rng: Rng): void {
 export interface Game {
   tick(dtMs: number): void
   getState(): GameState
+  isPlaying: boolean
+  speed: number
+  setPlaying(playing: boolean): void
+  setSpeed(speed: number): void
 }
 
 export function createGame(options?: { seed?: number }): Game {
@@ -329,10 +333,13 @@ export function createGame(options?: { seed?: number }): Game {
   })
 
   let accumulated = 0
+  let playing = true
+  let speed = 1
 
   return {
     tick(dtMs: number): void {
-      accumulated += dtMs
+      if (!playing) return
+      accumulated += dtMs * speed
       while (accumulated >= TICK_STEP_MS) {
         accumulated -= TICK_STEP_MS
         step(state, rng)
@@ -340,6 +347,21 @@ export function createGame(options?: { seed?: number }): Game {
     },
     getState(): GameState {
       return structuredClone(state)
+    },
+    get isPlaying(): boolean {
+      return playing
+    },
+    get speed(): number {
+      return speed
+    },
+    setPlaying(p: boolean): void {
+      if (p) {
+        accumulated = 0
+      }
+      playing = p
+    },
+    setSpeed(s: number): void {
+      speed = s
     },
   }
 }

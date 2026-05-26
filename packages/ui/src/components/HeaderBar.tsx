@@ -1,11 +1,20 @@
 import type { GameState } from '@paws/core'
 import { formatDay, formatSimTime, stackQty } from '../utils/format'
+import { TransportControls } from './TransportControls'
+
+interface Props {
+  state: GameState
+  isPlaying: boolean
+  speed: number
+  setPlaying: (v: boolean) => void
+  cycleSpeed: () => void
+}
 
 interface Props {
   state: GameState
 }
 
-export function HeaderBar({ state }: Props) {
+export function HeaderBar({ state, isPlaying, speed, setPlaying, cycleSpeed }: Props) {
   const fuel = stackQty(state.baseStorage, 'fuel')
   const materials = stackQty(state.baseStorage, 'materials')
   const ammo = stackQty(state.baseStorage, 'ammo')
@@ -41,17 +50,12 @@ export function HeaderBar({ state }: Props) {
       <div className="header-clock">
         <div className="header-clock__day">DAY {formatDay(state.simTimeMs)}</div>
         <div>{formatSimTime(state.simTimeMs)}</div>
-        <div className="transport-controls">
-          <button type="button" disabled>
-            ⏸
-          </button>
-          <button type="button" disabled>
-            ▶
-          </button>
-          <button type="button" disabled>
-            ⏩
-          </button>
-        </div>
+        <TransportControls
+          isPlaying={isPlaying}
+          speed={speed}
+          onPlayPause={() => setPlaying(!isPlaying)}
+          onCycleSpeed={cycleSpeed}
+        />
       </div>
     </header>
   )
