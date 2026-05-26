@@ -1,6 +1,6 @@
 .app-shell {
   display: grid;
-  grid-template-rows: auto 1fr auto;
+  grid-template-rows: auto 1fr 180px;
   grid-template-columns: 220px 1fr 280px;
   grid-template-areas:
     'header header header'
@@ -31,6 +31,7 @@
   display: flex;
   flex-direction: column;
   min-height: 0;
+  overflow: hidden;
 }
 
 .app-right {
@@ -44,8 +45,12 @@
 .app-squad-row {
   grid-area: squad;
   border-top: 1px solid var(--border);
-  padding: 0.5rem 1rem;
+  padding: 0.5rem 0.5rem 0;
   background: var(--panel);
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
 }
 
 .panel-section {
@@ -203,11 +208,14 @@
 }
 
 .map-panel {
+  grid-area: center;
   flex: 1;
   display: flex;
   flex-direction: column;
   min-height: 0;
   position: relative;
+  overflow: hidden;
+  z-index: 1;
 }
 
 .map-tabs {
@@ -241,6 +249,7 @@
   flex: 1;
   position: relative;
   min-height: 200px;
+  overflow: hidden;
 }
 
 .map-canvas-wrap canvas {
@@ -320,6 +329,41 @@
   border-color: var(--accent);
 }
 
+.unit-card__backpack {
+  margin: 0.25rem 0;
+  padding: 0.2rem;
+  background: rgba(0, 0, 0, 0.2);
+  border: 1px solid var(--border);
+  border-radius: 2px;
+}
+
+.backpack-label {
+  font-size: 0.6rem;
+  margin-right: 0.25rem;
+}
+
+.backpack-items {
+  display: flex;
+  gap: 0.25rem;
+  flex-wrap: wrap;
+  font-size: 0.6rem;
+}
+
+.backpack-item {
+  color: var(--text);
+}
+
+.backpack-more {
+  color: var(--muted);
+  font-style: italic;
+}
+
+.unit-card__weight {
+  font-size: 0.6rem;
+  color: var(--muted);
+  margin: 0.25rem 0 0.35rem;
+}
+
 .unit-card__readiness-label {
   font-size: 0.6rem;
   color: var(--muted);
@@ -395,6 +439,43 @@
   font-size: 0.75rem;
   margin-top: 0.5rem;
   color: var(--muted);
+}
+
+.backpack-section {
+  padding: 0.5rem;
+  border-top: 1px solid var(--border);
+}
+
+.backpack-section button {
+  font-size: 0.6rem;
+  padding: 0.2rem 0.5rem;
+  cursor: not-allowed;
+  opacity: 0.5;
+  margin-bottom: 0.5rem;
+}
+
+.backpack-summary {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.backpack-unit-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 0.7rem;
+}
+
+.backpack-count {
+  color: var(--accent);
+  font-size: 0.65rem;
+}
+
+.empty-label {
+  color: var(--muted);
+  font-style: italic;
+  font-size: 0.65rem;
 }
 
 .event-log {
