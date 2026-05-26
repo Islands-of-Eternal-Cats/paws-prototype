@@ -55,10 +55,15 @@ export function drawMap(
   for (const node of state.mapNodes) {
     const isHq = node.id === 'hq'
 
-    // Check if any squad has this node as objective
+    // Check if any squad has this node as objective (only during active mission phases)
     let isTarget = false
     for (const squad of state.squads) {
-      if (squad.missionTargetId && squad.missionTargetX === node.x && squad.missionTargetY === node.y) {
+      if (
+        squad.missionTargetId &&
+        (squad.phase === 'InMission' || squad.phase === 'Deploying') &&
+        squad.missionTargetX === node.x &&
+        squad.missionTargetY === node.y
+      ) {
         isTarget = true
         break
       }
