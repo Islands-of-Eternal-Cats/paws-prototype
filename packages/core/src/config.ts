@@ -1,3 +1,5 @@
+import { MissionType } from "./types"
+
 export const TICK_STEP_MS = 100
 export const DEPLOYING_MS = 5000
 export const RETURNING_MS = 5000
