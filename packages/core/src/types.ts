@@ -45,6 +45,7 @@ export interface SquadState {
   missionProgress: number
   missionTargetId: string | null
   missionTargetLabel: string | null
+  missionTargetType: MissionType | null
   missionTargetX: number
   missionTargetY: number
   missionTargetDurationMs: number

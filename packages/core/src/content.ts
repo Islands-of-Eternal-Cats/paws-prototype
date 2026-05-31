@@ -138,6 +138,7 @@ export function createInitialSquads(): SquadState[] {
     missionProgress: 0,
     missionTargetId: null,
     missionTargetLabel: null,
+    missionTargetType: null,
     missionTargetX: 0,
     missionTargetY: 0,
     missionTargetDurationMs: 0,

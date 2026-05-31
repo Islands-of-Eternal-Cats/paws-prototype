@@ -122,6 +122,45 @@ describe('createGame', () => {
     expect(labels).toContain(inMission!.missionTargetLabel)
   })
 
+  it('rolls mission events using target type not squad doctrine', () => {
+    // KOBRA-1 is ASSAULT doctrine; when it takes a PATROL target (fallback),
+    // event weights must follow PATROL (no encounters), not ASSAULT.
+    let patrolSeed: number | null = null
+    for (let seed = 0; seed < 5000; seed++) {
+      const game = createGame({ seed })
+      const deployTicks = Math.ceil((BASE_PAUSE_MS + DEPLOYING_MS) / TICK_STEP_MS) + 2
+      for (let i = 0; i < deployTicks; i++) game.tick(TICK_STEP_MS)
+      const kobra1 = game.getState().squads[0]
+      if (
+        kobra1.doctrine === 'ASSAULT' &&
+        kobra1.missionTargetDurationMs === 30000 &&
+        kobra1.phase === 'InMission'
+      ) {
+        patrolSeed = seed
+        break
+      }
+    }
+    expect(patrolSeed).not.toBeNull()
+
+    const game = createGame({ seed: patrolSeed! })
+    const deployTicks = Math.ceil((BASE_PAUSE_MS + DEPLOYING_MS) / TICK_STEP_MS) + 2
+    for (let i = 0; i < deployTicks; i++) game.tick(TICK_STEP_MS)
+    expect(game.getState().squads[0].missionTargetType).toBe('PATROL')
+
+    const missionTicks = Math.ceil(30000 / TICK_STEP_MS)
+    for (let i = 0; i < missionTicks; i++) game.tick(TICK_STEP_MS)
+
+    const missionEvents = game
+      .getState()
+      .eventLog.filter(
+        (e) =>
+          e.squadId === 'KOBRA-1' &&
+          e.type !== 'phase' &&
+          e.type !== 'resupply',
+      )
+    expect(missionEvents.some((e) => e.type === 'encounter')).toBe(false)
+  })
+
   it('squad missionTargetLabel is cleared when returning to base', () => {
     const game = createGame({ seed: 1 })
     const totalTicks = Math.ceil(90000 / TICK_STEP_MS) + 5

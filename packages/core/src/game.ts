@@ -138,6 +138,7 @@ function enterPhase(
     squad.missionProgress = 0
     squad.missionTargetId = null
     squad.missionTargetLabel = null
+    squad.missionTargetType = null
     squad.missionTargetX = 0
     squad.missionTargetY = 0
     squad.missionTargetDurationMs = 0
@@ -208,6 +209,7 @@ function advancePhase(
       removeTargetFromPool(state.missionPool, target.id)
       squad.missionTargetId = target.id
       squad.missionTargetLabel = target.label
+      squad.missionTargetType = target.type
       squad.missionTargetX = target.x
       squad.missionTargetY = target.y
       squad.missionTargetDurationMs = target.durationMs
@@ -217,6 +219,7 @@ function advancePhase(
       removeTargetFromPool(state.missionPool, target.id)
       squad.missionTargetId = target.id
       squad.missionTargetLabel = target.label
+      squad.missionTargetType = target.type
       squad.missionTargetX = target.x
       squad.missionTargetY = target.y
       squad.missionTargetDurationMs = target.durationMs
@@ -263,7 +266,7 @@ function step(state: GameState, rng: Rng): void {
           rng,
           state.tick,
           state.simTimeMs,
-          squad.doctrine,
+          squad.missionTargetType ?? squad.doctrine,
         )
         squad.missionEvents.push(evt)
         pushEvent(state, evt)
